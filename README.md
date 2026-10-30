@@ -9,7 +9,7 @@ Buyers get their setup code and the full walkthrough from the member area at tid
 Go to Website → Website Tools → Code Injection → Footer, paste this line and save:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/tidesstudio/contact-sheet-proofing@1.0.0/contact-sheet-proofing.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tidesstudio/contact-sheet-proofing@1.1.0/contact-sheet-proofing.min.js"></script>
 ```
 
 This needs a Squarespace plan with Code Injection (Core, Plus or Advanced).
@@ -24,6 +24,11 @@ This needs a Squarespace plan with Code Injection (Core, Plus or Advanced).
 ## Updates
 
 Each version has its own address, so your site only changes when you choose. To update, change the version number in the line above to the latest release.
+
+## Versions
+
+- **1.1.0:** swipe mode on phones (right to select, left to skip, up for maybe), with a review screen, trimming to the package size and a pass through maybes. Computers are unchanged.
+- **1.0.0:** first release.
 
 ## Files
 

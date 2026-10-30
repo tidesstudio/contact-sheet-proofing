@@ -1,8 +1,9 @@
-/* Contact Sheet Proofing by Tides Studio — v1.0.0
+/* Contact Sheet Proofing by Tides Studio — v1.1.0
    Installed once with one line in Website Tools → Code Injection → Footer (see README.md).
    On any page with <div class="tides-proofing">, the page's gallery section becomes a film
    contact sheet. Tapping a frame marks it in grease pencil; picks fill the Form block's
    "Selects" field. Picks are saved on the visitor's device.
+   On phones, visitors can swipe instead: right to select, left to skip, up for maybe.
    No payment is taken: extras are shown as a total for the photographer to invoice. */
 (function () {
   'use strict';
@@ -62,7 +63,7 @@
   var hole = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Crect x='4' y='2' width='8' height='6' rx='1.6' fill='%23efe4d2'/%3E%3C/svg%3E\")";
 
   var CSS = '' +
-  '.tp-sheet,.tp-lb,.tp-bar{--tp-film:#3a2417;--tp-film-2:#4a2e1c;--tp-edge:#f0a64a}' +
+  '.tp-sheet,.tp-lb,.tp-bar,.tp-wrap,.tp-sw{--tp-film:#3a2417;--tp-film-2:#4a2e1c;--tp-edge:#f0a64a}' +
   '.tp-sheet{background:linear-gradient(180deg,var(--tp-film-2),var(--tp-film));padding:clamp(10px,2vw,22px);color:var(--tp-edge);font:11px/1 "Courier New",monospace;letter-spacing:.08em}' +
   '.tp-sheet{--tp-cols:var(--tp-cols-l,6)}' +
   // One grid for all frames: every row reads as a film strip at any screen width.
@@ -118,6 +119,87 @@
   '.tp-lb-cap{margin-top:14px;font:11px/1 "Courier New",monospace;letter-spacing:.08em;color:#f0a64a}' +
   '.tp-lb-text{margin-top:8px;max-width:640px;text-align:center;opacity:.85}' +
   '.tp-lb-text:empty{display:none}' +
+  /* maybe: a small pencilled "?" in the corner of the frame */
+  '.tp-maybe-tag{position:absolute;top:24px;left:9px;font:600 12px/1 var(--body-font-font-family,inherit);letter-spacing:.1em;text-transform:uppercase;color:#f5f2ea;background:rgba(58,36,23,.82);padding:5px 7px;display:none}' +
+  '.is-maybe .tp-maybe-tag{display:block}' +
+  /* phones: choose swipe or contact sheet */
+  '.tp-switch{display:none;justify-content:center;gap:26px;padding:0 0 14px;font-family:var(--body-font-font-family,inherit)}' +
+  '.tp-switch button{background:none;border:0;padding:8px 2px;font:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:inherit;opacity:.55;cursor:pointer}' +
+  '.tp-switch button[aria-pressed=true]{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-start{display:none;flex-direction:column;align-items:center;gap:22px;padding:42px 16px 36px;background:linear-gradient(180deg,var(--tp-film-2),var(--tp-film));color:#f5f2ea;font-family:var(--body-font-font-family,inherit);text-align:center}' +
+  '.tp-start-pile{position:relative;width:62%;max-width:260px;aspect-ratio:4/5}' +
+  '.tp-start-pile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,.35);border:5px solid #f5f2ea}' +
+  '.tp-start-pile img:nth-child(1){transform:rotate(-6deg)}.tp-start-pile img:nth-child(2){transform:rotate(4deg)}' +
+  '.tp-start p{margin:0;font-size:14px;line-height:1.5;opacity:.85;max-width:300px}' +
+  '.tp-start .tp-go{padding:10px 2px;background:none;color:#f5f2ea;border:0;font:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-start .tp-again{padding:6px 2px;background:none;color:#f5f2ea;border:0;font:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;opacity:.65;margin-top:-14px}' +
+  '.tp-start .tp-again[hidden]{display:none}' +
+  '.tp-phone .tp-switch{display:flex}' +
+  '.tp-phone.tp-swipe .tp-start{display:flex}' +
+  '.tp-phone.tp-swipe .tp-sheet{display:none}' +
+  /* swipe view */
+  '.tp-sw{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;background:linear-gradient(180deg,var(--tp-film-2),var(--tp-film));color:#f5f2ea;font-family:var(--body-font-font-family,inherit);font-size:14px;overscroll-behavior:contain}' +
+  '.tp-sw.is-open{display:flex}' +
+  '.tp-sw button{background:none;border:0;color:#f5f2ea;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+  '.tp-sw-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 0 16px;min-height:52px}' +
+  '.tp-sw-prog{font:11px/1.3 "Courier New",monospace;letter-spacing:.08em;color:#f0a64a}' +
+  '.tp-sw-count{font-size:13px;flex:1;text-align:right}' +
+  '.tp-sw-count b{font-weight:600}' +
+  '.tp-sw-close{font-size:26px!important;padding:4px 8px;line-height:1}' +
+  '.tp-sw-hint{text-align:center;font-size:13px;opacity:.8;padding:4px 16px 0;min-height:20px}' +
+  '.tp-sw-stage{position:relative;flex:1;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}' +
+  '.tp-sw-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);transition:transform .3s cubic-bezier(.3,.7,.4,1),opacity .3s;will-change:transform}' +
+  '.tp-sw-card img{display:block;max-width:calc(100vw - 40px);max-height:calc(100vh - 250px);max-height:calc(100dvh - 250px);box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;-webkit-user-drag:none}' +
+  // The next photo waits out of sight and comes up as the top one is pulled away.
+  '.tp-sw-card.is-next{transform:translate(-50%,-50%) scale(.94);opacity:0;transition:opacity .2s}' +
+  '.tp-sw-card .tp-wm{top:0;bottom:0;left:0;right:0}' +
+  '.tp-sw-card .tp-mark--wide{left:-12px;right:-12px;top:-12px;bottom:-12px;width:calc(100% + 24px);height:calc(100% + 24px)}' +
+  '.tp-sw-card .tp-mark--wide path{stroke-width:.7}' +
+  '.tp-sw-card .tp-mark--corner{right:-10px;bottom:-10px;width:min(22%,90px)}' +
+  '.tp-sw-card .tp-mark path{transition:none}' +
+  // Quiet words, like the buttons: no box, and a soft shadow so they read on light photos.
+  '.tp-sw-stamp{position:absolute;top:16px;padding:4px 0;font-size:12px;font-weight:400;letter-spacing:.16em;text-transform:uppercase;color:#f5f2ea;opacity:0;text-shadow:0 1px 8px rgba(0,0,0,.7);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-sw-stamp--left{right:16px}' +
+  '.tp-sw-stamp--up{left:50%;top:auto;bottom:22px;transform:translateX(-50%)}' +
+  '.tp-sw-label{position:absolute;left:0;right:70px;top:100%;margin-top:10px;font:11px/1.3 "Courier New",monospace;letter-spacing:.08em;color:#f0a64a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+  '.tp-sw-was{position:absolute;right:0;top:100%;margin-top:10px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.75}' +
+  '.tp-sw-row{display:flex;justify-content:space-around;align-items:center;padding:6px 8px 0}' +
+  '.tp-sw-row button{min-width:88px;min-height:52px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.7}' +
+  '.tp-sw-row button[hidden]{display:block;visibility:hidden}' +
+  '.tp-sw-row [data-dir=right]{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-sw-foot{display:flex;justify-content:center;padding:0 0 max(14px,env(safe-area-inset-bottom))}' +
+  '.tp-sw-foot button{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.55;padding:10px 14px}' +
+  '.tp-sw-foot button[disabled]{opacity:.2}' +
+  /* review */
+  '.tp-sw-review{position:absolute;inset:52px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px max(24px,env(safe-area-inset-bottom));background:var(--tp-film);display:none}' +
+  '.tp-sw.is-review .tp-sw-review{display:block}' +
+  '.tp-rv-head{font:inherit;font-size:22px;line-height:1.25;margin:6px 0 6px;color:#f5f2ea;letter-spacing:0;text-transform:none}' +
+  '.tp-rv-msg{font-size:14px;line-height:1.5;opacity:.85;margin:0 0 16px}' +
+  '.tp-rv-acts{display:flex;flex-wrap:wrap;gap:4px 28px;margin:0 0 22px}' +
+  '.tp-sw .tp-rv-acts button{padding:10px 2px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.65}' +
+  '.tp-sw .tp-rv-acts button.is-main{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-rv-pile{margin:0 0 22px}' +
+  '.tp-rv-pile h3{font:11px/1 "Courier New",monospace;letter-spacing:.1em;text-transform:uppercase;color:#f0a64a;margin:0 0 10px;font-weight:400}' +
+  '.tp-rv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}' +
+  '.tp-sw .tp-rv-grid button{padding:0;position:relative;display:block}' +
+  '.tp-rv-grid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}' +
+  '.tp-rv-grid span{position:absolute;left:3px;bottom:3px;font:10px/1 "Courier New",monospace;background:rgba(58,36,23,.85);color:#f0a64a;padding:2px 4px}' +
+  '.tp-rv-pile--skip .tp-rv-grid img{opacity:.55}' +
+  '.tp-rv-empty{font-size:13px;opacity:.6;margin:0}' +
+  '.tp-rv-pile summary{cursor:pointer;list-style:none}.tp-rv-pile summary::-webkit-details-marker{display:none}' +
+  '.tp-rv-pile summary h3{display:inline}' +
+  '.tp-rv-pile summary:after{content:" \\25BE";color:#f0a64a;font-size:11px}' +
+  '.tp-sw .tp-rv-send{display:block;margin:6px auto 0;padding:12px 2px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-sw .tp-rv-send[disabled]{opacity:.35}' +
+  /* move one photo between piles */
+  '.tp-mv{position:absolute;inset:0;z-index:2;background:rgba(30,18,10,.97);display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:16px}' +
+  '.tp-mv.is-open{display:flex}' +
+  '.tp-mv img{max-width:100%;max-height:calc(100dvh - 220px);display:block}' +
+  '.tp-mv-cap{font:11px/1 "Courier New",monospace;letter-spacing:.08em;color:#f0a64a}' +
+  '.tp-mv-row{display:flex;gap:32px}' +
+  '.tp-sw .tp-mv-row button{padding:10px 2px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.55}' +
+  '.tp-sw .tp-mv-row button[aria-pressed=true]{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}' +
+  '.tp-mv-x{position:absolute;top:12px;right:12px;font-size:26px!important;padding:4px 10px}' +
   '@media (max-width:900px){.tp-sheet{--tp-cols:var(--tp-cols-m,4)}}' +
   '@media (max-width:560px){.tp-sheet{--tp-cols:var(--tp-cols-s,2);font-size:10px}}';
 
@@ -295,12 +377,24 @@
     frames.forEach(function (f, i) { f.num = i + 1; });
     if (!frames.length) return null;
 
-    var picked = {};
-    try { (JSON.parse(localStorage.getItem(storeKey)) || []).forEach(function (n) { if (n <= frames.length) picked[n] = true; }); } catch (e) {}
+    // Selected, maybe, and seen (anything decided, including skipped) are kept apart on the device.
+    var picked = {}, maybe = {}, seen = {};
+    function load(key, into) {
+      try { (JSON.parse(localStorage.getItem(key)) || []).forEach(function (n) { if (n <= frames.length) into[n] = true; }); } catch (e) {}
+    }
+    load(storeKey, picked);
+    load(storeKey + ':maybe', maybe);
+    load(storeKey + ':seen', seen);
 
     function save() {
-      try { localStorage.setItem(storeKey, JSON.stringify(Object.keys(picked).map(Number))); } catch (e) {}
+      try {
+        localStorage.setItem(storeKey, JSON.stringify(Object.keys(picked).map(Number)));
+        localStorage.setItem(storeKey + ':maybe', JSON.stringify(Object.keys(maybe).map(Number)));
+        localStorage.setItem(storeKey + ':seen', JSON.stringify(Object.keys(seen).map(Number)));
+      } catch (e) {}
     }
+
+    function stateOf(num) { return picked[num] ? 'select' : maybe[num] ? 'maybe' : seen[num] ? 'skip' : 'new'; }
 
     // The outermost gallery wrapper inside the section: hidden on the live site, kept for the editor.
     var gallerySection = figures[0].closest('.gallery-section');
@@ -336,7 +430,7 @@
     sheet.appendChild(strip);
     frames.forEach(function (f) {
       var el = document.createElement('div');
-      el.className = 'tp-frame' + (picked[f.num] ? ' is-picked' : '');
+      el.className = 'tp-frame' + (picked[f.num] ? ' is-picked' : '') + (maybe[f.num] ? ' is-maybe' : '');
       el.tabIndex = 0;
       el.setAttribute('role', 'listitem');
       el.setAttribute('aria-pressed', picked[f.num] ? 'true' : 'false');
@@ -345,6 +439,7 @@
       el.innerHTML = '<img loading="lazy" decoding="async" alt="' + esc(f.alt || label(f)) + '" ' +
         'src="' + f.src + '?format=300w" srcset="' + f.src + '?format=300w 300w, ' + f.src + '?format=500w 500w, ' + f.src + '?format=1000w 1000w" sizes="' + sizes + '">' +
         wmHTML + markSVG(cfg.mark, f.num) +
+        '<span class="tp-maybe-tag">Maybe</span>' +
         '<span class="tp-num">' + f.num + '</span>' +
         '<button class="tp-loupe" type="button" aria-label="View frame ' + f.num + ' larger">&#9906;</button>';
       var slot = document.createElement('div');
@@ -414,7 +509,9 @@
       countEl.innerHTML = html.replace(String(vals.selected), '<b>' + vals.selected + '</b>');
       sendBtn.disabled = list.length === 0;
       fillForm(list, vals);
+      if (swipe) swipe.update();
     }
+    var swipe = null;
 
     sendBtn.addEventListener('click', function () {
       var form = (findField() || {}).form;
@@ -423,15 +520,23 @@
 
     /* ---------- picking ---------- */
 
-    function toggle(num) {
-      if (picked[num]) delete picked[num]; else picked[num] = true;
+    // state: 'select', 'maybe', 'skip' or 'new'. Every view (sheet, loupe, swipe) goes through here.
+    function setState(num, state) {
+      delete picked[num];
+      delete maybe[num];
+      if (state === 'select') picked[num] = true;
+      if (state === 'maybe') maybe[num] = true;
+      if (state === 'new') delete seen[num]; else seen[num] = true;
       var f = frames[num - 1];
       f.el.classList.toggle('is-picked', !!picked[num]);
+      f.el.classList.toggle('is-maybe', !!maybe[num]);
       f.el.setAttribute('aria-pressed', picked[num] ? 'true' : 'false');
       save();
       render();
       if (lb.classList.contains('is-open') && current === num) syncLightbox();
     }
+
+    function toggle(num) { setState(num, picked[num] ? 'skip' : 'select'); }
 
     sheet.addEventListener('click', function (e) {
       var frame = e.target.closest('.tp-frame');
@@ -489,22 +594,420 @@
       touchX = null;
     });
 
+    /* ---------- swipe mode (phones) ---------- */
+
+    /* A "round" is one pass through a pile of photos. Each round gives the three directions
+       its own meaning: the first pass sorts everything, the maybe pass settles the maybes,
+       and the trim pass goes through the selects until they fit the package. */
+    var ROUNDS = {
+      first: { left: ['Skip', 'skip'], up: ['Maybe', 'maybe'], right: ['Select', 'select'] },
+      // Every photo again, showing where each one is now. Unchanged swipes keep it there.
+      again: { left: ['Skip', 'skip'], up: ['Maybe', 'maybe'], right: ['Select', 'select'] },
+      maybes: { left: ['Skip', 'skip'], up: ['Still maybe', 'maybe'], right: ['Select', 'select'] },
+      // Dropped photos become maybes, so nothing is lost by trimming.
+      trim: { left: ['Drop', 'maybe'], right: ['Keep', 'select'] }
+    };
+    var STATE_NAMES = { select: 'Selected', maybe: 'Maybe', skip: 'Skipped' };
+
+    function buildSwipe() {
+      var phoneQuery = window.matchMedia('(max-width: 700px)');
+      var modeKey = storeKey + ':mode';
+      var mode = 'swipe';
+      try { mode = localStorage.getItem(modeKey) || 'swipe'; } catch (e) {}
+
+      // Page parts: the Swipe / Contact sheet switch, and a start card where the sheet would be.
+      var wrap = document.createElement('div');
+      wrap.className = 'tp-wrap';
+      var switcher = document.createElement('div');
+      switcher.className = 'tp-switch';
+      switcher.innerHTML = '<button type="button" data-mode="swipe">Swipe</button><button type="button" data-mode="sheet">Contact sheet</button>';
+      var start = document.createElement('div');
+      start.className = 'tp-start';
+      start.innerHTML = '<div class="tp-start-pile"></div><p class="tp-start-text"></p><button class="tp-go" type="button"></button><button class="tp-again" type="button" hidden>Swipe again</button>';
+
+      var sw = document.createElement('div');
+      sw.className = 'tp-sw';
+      sw.setAttribute('role', 'dialog');
+      sw.setAttribute('aria-modal', 'true');
+      sw.setAttribute('aria-label', 'Swipe through your photos');
+      sw.innerHTML = '<div class="tp-sw-top"><span class="tp-sw-prog"></span><span class="tp-sw-count" aria-live="polite"></span>' +
+        '<button class="tp-sw-close" type="button" aria-label="Close">&times;</button></div>' +
+        '<div class="tp-sw-hint"></div><div class="tp-sw-stage"></div>' +
+        '<div class="tp-sw-row"><button type="button" data-dir="left"></button><button type="button" data-dir="up"></button><button type="button" data-dir="right"></button></div>' +
+        '<div class="tp-sw-foot"><button class="tp-sw-undo" type="button">Undo</button><button class="tp-sw-done" type="button">Review picks</button></div>' +
+        '<div class="tp-sw-review"></div>' +
+        '<div class="tp-mv"><button class="tp-mv-x" type="button" aria-label="Close">&times;</button><img alt=""><div class="tp-mv-cap"></div>' +
+        '<div class="tp-mv-row"><button type="button" data-state="skip">Skip</button><button type="button" data-state="maybe">Maybe</button><button type="button" data-state="select">Select</button></div></div>';
+      var stage = sw.querySelector('.tp-sw-stage');
+      var review = sw.querySelector('.tp-sw-review');
+      var mover = sw.querySelector('.tp-mv');
+      var undoBtn = sw.querySelector('.tp-sw-undo');
+
+      var round = null;      // { kind, queue: [frame numbers], i }
+      var history = [];      // { num, was, i } for Undo within the round
+      var keepExtras = false;
+      var busy = false;      // a card is flying off; ignore input until it's gone
+      var moving = 0;        // frame open in the "move" panel
+
+      function list(state) { return frames.filter(function (f) { return stateOf(f.num) === state; }); }
+      function thumb(f, w) { return f.src + '?format=' + (w || 300) + 'w'; }
+
+      /* ----- page parts ----- */
+
+      function applyMode() {
+        var phone = phoneQuery.matches;
+        wrap.classList.toggle('tp-phone', phone);
+        wrap.classList.toggle('tp-swipe', mode === 'swipe');
+        [].forEach.call(switcher.children, function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
+        if (!phone && sw.classList.contains('is-open')) close();
+      }
+
+      function updateStart() {
+        var left = list('new');
+        var pile = (left.length ? left : frames).slice(0, 3).reverse();
+        start.querySelector('.tp-start-pile').innerHTML = pile.map(function (f) { return '<img alt="" src="' + thumb(f, 500) + '">'; }).join('');
+        var text = start.querySelector('.tp-start-text');
+        var go = start.querySelector('.tp-go');
+        start.querySelector('.tp-again').hidden = left.length > 0;
+        if (left.length === frames.length) {
+          text.textContent = frames.length + ' photos. Swipe right to select, left to skip, up for maybe.';
+          go.textContent = 'Start';
+        } else if (left.length) {
+          text.textContent = left.length + ' of ' + frames.length + ' photos still to see.';
+          go.textContent = 'Continue';
+        } else {
+          text.textContent = 'You\'ve seen all ' + frames.length + ' photos. ' + fill(choose ? cfg.countText : cfg.plainCountText, summary(list('select').length)) + '.';
+          go.textContent = 'Review picks';
+        }
+      }
+
+      switcher.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-mode]');
+        if (!b) return;
+        mode = b.dataset.mode;
+        try { localStorage.setItem(modeKey, mode); } catch (e) {}
+        applyMode();
+      });
+      start.querySelector('.tp-go').addEventListener('click', function () {
+        if (list('new').length) begin('first'); else { open(); showReview(); }
+      });
+      start.querySelector('.tp-again').addEventListener('click', function () { begin('again'); });
+
+      /* ----- open / close ----- */
+
+      function open() {
+        sw.classList.add('is-open');
+        document.documentElement.style.overflow = 'hidden';
+        sw.querySelector('.tp-sw-close').focus();
+      }
+      function close() {
+        sw.classList.remove('is-open', 'is-review');
+        mover.classList.remove('is-open');
+        document.documentElement.style.overflow = '';
+        round = null;
+        updateStart();
+      }
+
+      function begin(kind) {
+        var queue;
+        if (kind === 'first') queue = list('new');
+        else if (kind === 'again') queue = frames;
+        else if (kind === 'maybes') queue = list('maybe');
+        else queue = list('select');
+        round = { kind: kind, queue: queue.map(function (f) { return f.num; }), i: 0 };
+        history = [];
+        sw.classList.remove('is-review');
+        open();
+        if (!round.queue.length) return showReview();
+        var dirs = ROUNDS[kind];
+        [].forEach.call(sw.querySelectorAll('.tp-sw-row button'), function (b) {
+          var d = dirs[b.dataset.dir];
+          b.hidden = !d;
+          b.textContent = d ? d[0] : '';
+        });
+        draw();
+      }
+
+      /* ----- the cards ----- */
+
+      function cardHTML(num, top) {
+        var f = frames[num - 1];
+        var dirs = ROUNDS[round.kind];
+        var was = round.kind === 'first' ? '' : '<span class="tp-sw-was">' + STATE_NAMES[stateOf(num)] + '</span>';
+        return '<div class="tp-sw-card' + (top ? ' is-top' : ' is-next') + '" data-num="' + num + '">' +
+          '<img alt="' + esc(f.alt || label(f)) + '" src="' + thumb(f, 1000) + '" draggable="false">' + wmHTML +
+          (top ? markSVG(cfg.mark, f.num) : '') +
+          (top ? '<span class="tp-sw-stamp tp-sw-stamp--left">' + esc(dirs.left[0]) + '</span>' : '') +
+          (top && dirs.up ? '<span class="tp-sw-stamp tp-sw-stamp--up">' + esc(dirs.up[0]) + '</span>' : '') +
+          (top ? '<span class="tp-sw-label">' + esc(label(f)) + '</span>' + was : '') + '</div>';
+      }
+
+      function draw() {
+        var q = round.queue;
+        // The trim and maybe passes end on their own once the selects fill the package exactly.
+        var n = list('select').length;
+        if (round.i >= q.length || (round.kind === 'trim' && n <= choose) ||
+          (round.kind === 'maybes' && choose && n >= choose && history.length)) return showReview();
+        stage.innerHTML = (q[round.i + 1] ? cardHTML(q[round.i + 1], false) : '') + cardHTML(q[round.i], true);
+        if (q[round.i + 2]) new Image().src = thumb(frames[q[round.i + 2] - 1], 1000);
+        update();
+      }
+
+      function topCard() { return stage.querySelector('.is-top'); }
+
+      // Follow the finger: tilt the card, and fade in what letting go would do.
+      function place(card, dx, dy) {
+        card.style.transform = 'translate(-50%,-50%) translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx / 18).toFixed(2) + 'deg)';
+        var d = direction(dx, dy, 0);
+        var s = d ? Math.min(1, d.strength) : 0;
+        var path = card.querySelector('.tp-mark path');
+        var selecting = d && ROUNDS[round.kind][d.dir][1] === 'select';
+        if (path) { path.style.opacity = selecting ? 1 : 0; path.style.strokeDashoffset = selecting ? 1 - s : 1; }
+        [].forEach.call(card.querySelectorAll('.tp-sw-stamp'), function (st) {
+          st.style.opacity = d && st.classList.contains('tp-sw-stamp--' + d.dir) ? s : 0;
+        });
+        var next = stage.querySelector('.is-next');
+        if (next) next.style.opacity = Math.min(1, Math.hypot(dx, dy) / 160).toFixed(2);
+      }
+
+      /* Which way a drag is going. Only a clearly sideways or clearly upward drag counts:
+         anything diagonal, downward or short springs back, so a stray thumb does nothing. */
+      function direction(dx, dy, speed) {
+        var w = stage.clientWidth, h = stage.clientHeight, ax = Math.abs(dx), ay = Math.abs(dy);
+        if (ax > ay * 1.3) {
+          var far = w * 0.3;
+          return { dir: dx > 0 ? 'right' : 'left', strength: ax / far, commit: ax > far || (speed > 0.6 && ax > 50) };
+        }
+        if (dy < 0 && ay > ax * 1.5 && ROUNDS[round.kind].up) {
+          var high = h * 0.2;
+          return { dir: 'up', strength: ay / high, commit: ay > high || (speed > 0.6 && ay > 60) };
+        }
+        return null;
+      }
+
+      function fly(dir) {
+        if (busy || !round) return;
+        var card = topCard();
+        if (!card) return;
+        busy = true;
+        var w = stage.clientWidth, h = stage.clientHeight;
+        card.style.transition = 'transform .28s ease-in, opacity .28s ease-in';
+        place(card, dir === 'up' ? 0 : (dir === 'right' ? 1 : -1) * w * 1.3, dir === 'up' ? -h * 1.1 : 40);
+        if (ROUNDS[round.kind][dir][1] === 'select') { var p = card.querySelector('.tp-mark path'); if (p) { p.style.opacity = 1; p.style.strokeDashoffset = 0; } }
+        card.style.opacity = '0';
+        setTimeout(function () {
+          busy = false;
+          decide(dir);
+        }, 260);
+      }
+
+      function decide(dir) {
+        var num = round.queue[round.i];
+        history.push({ num: num, was: stateOf(num), i: round.i });
+        setState(num, ROUNDS[round.kind][dir][1]);
+        round.i++;
+        draw();
+      }
+
+      function undo() {
+        var h = history.pop();
+        if (!h) return;
+        setState(h.num, h.was);
+        round.i = h.i;
+        sw.classList.remove('is-review');
+        draw();
+      }
+
+      var drag = null;
+      stage.addEventListener('pointerdown', function (e) {
+        var card = e.target.closest('.is-top');
+        if (!card || busy) return;
+        drag = { x: e.clientX, y: e.clientY, t: Date.now(), card: card, dx: 0, dy: 0 };
+        card.style.transition = 'none';
+        try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+      stage.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        drag.dx = e.clientX - drag.x;
+        drag.dy = e.clientY - drag.y;
+        place(drag.card, drag.dx, drag.dy);
+      });
+      function endDrag() {
+        if (!drag) return;
+        var d = direction(drag.dx, drag.dy, Math.hypot(drag.dx, drag.dy) / Math.max(1, Date.now() - drag.t));
+        var card = drag.card;
+        drag = null;
+        if (d && d.commit) return fly(d.dir);
+        card.style.transition = '';
+        place(card, 0, 0);
+      }
+      stage.addEventListener('pointerup', endDrag);
+      stage.addEventListener('pointercancel', endDrag);
+
+      sw.querySelector('.tp-sw-row').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-dir]');
+        if (b && !b.hidden) fly(b.dataset.dir);
+      });
+      undoBtn.addEventListener('click', undo);
+      sw.querySelector('.tp-sw-done').addEventListener('click', showReview);
+      sw.querySelector('.tp-sw-close').addEventListener('click', close);
+
+      /* ----- review: the three piles, and help getting down to the package ----- */
+
+      function pileHTML(state, title, open) {
+        var fs = list(state);
+        var grid = fs.length
+          ? '<div class="tp-rv-grid">' + fs.map(function (f) {
+              return '<button type="button" data-num="' + f.num + '" aria-label="' + esc(label(f)) + '"><img alt="" loading="lazy" src="' + thumb(f) + '"><span>' + f.num + '</span></button>';
+            }).join('') + '</div>'
+          : '<p class="tp-rv-empty">None</p>';
+        var head = '<h3>' + title + ' · ' + fs.length + '</h3>';
+        if (open) return '<div class="tp-rv-pile tp-rv-pile--' + state + '">' + head + grid + '</div>';
+        return '<details class="tp-rv-pile tp-rv-pile--' + state + '"><summary>' + head + '</summary>' + grid + '</details>';
+      }
+
+      function showReview() {
+        if (round) round = null;
+        sw.classList.add('is-review');
+        open();
+        var n = list('select').length, m = list('maybe').length, left = list('new').length;
+        var vals = summary(n);
+        if (n <= choose) keepExtras = false;
+        var head, msg = '', acts = [];
+        if (!choose) {
+          head = fill(cfg.plainCountText, vals);
+          if (m) { msg = 'You have ' + m + (m === 1 ? ' maybe.' : ' maybes.'); acts.push(['maybes', 'Go through maybes', true]); }
+        } else if (n > choose && !keepExtras) {
+          head = 'You\'re ' + vals.extra + ' over';
+          msg = 'Your package includes ' + choose + '.' + (extraPrice ? ' Keeping all ' + n + ' adds ' + vals.total + '.' : '');
+          acts.push(['trim', 'Trim to ' + choose, true], ['keep', 'Keep all ' + n, false]);
+        } else if (n > choose) {
+          head = fill(cfg.plainCountText, vals);
+          msg = fill(cfg.extraText, vals) + (extraPrice && cfg.extraNote ? ' ' + cfg.extraNote : '');
+          acts.push(['trim', 'Trim instead', false]);
+        } else if (n < choose) {
+          head = fill(cfg.countText, vals);
+          msg = (choose - n) + (choose - n === 1 ? ' spot' : ' spots') + ' left.' + (m ? ' Go through your ' + m + (m === 1 ? ' maybe' : ' maybes') + ' to fill ' + (choose - n === 1 ? 'it' : 'them') + '.' : '');
+          if (m) acts.push(['maybes', 'Go through maybes', true]);
+        } else {
+          head = 'That\'s your ' + choose;
+          msg = 'You\'re ready to send.' + (m ? ' Your ' + m + (m === 1 ? ' maybe isn\'t' : ' maybes aren\'t') + ' included.' : '');
+        }
+        if (left) { msg = left + ' photos still to see. ' + msg; acts.unshift(['first', 'See the other ' + left, true]); acts.forEach(function (a, i) { if (i) a[2] = false; }); }
+        else acts.push(['again', 'Swipe through all ' + frames.length, !acts.length]);
+        msg += ' Tap any photo to move it.';
+        review.innerHTML = '<h2 class="tp-rv-head">' + esc(head) + '</h2><p class="tp-rv-msg">' + esc(msg) + '</p>' +
+          (acts.length ? '<div class="tp-rv-acts">' + acts.map(function (a) {
+            return '<button type="button" data-act="' + a[0] + '"' + (a[2] ? ' class="is-main"' : '') + '>' + esc(a[1]) + '</button>';
+          }).join('') + '</div>' : '') +
+          pileHTML('select', 'Selected', true) + pileHTML('maybe', 'Maybe', true) + pileHTML('skip', 'Skipped', false) +
+          '<button type="button" class="tp-rv-send"' + (n ? '' : ' disabled') + '>' + esc(cfg.button) + ' my selects</button>';
+        update();
+      }
+
+      review.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-act]');
+        if (a) {
+          if (a.dataset.act === 'keep') { keepExtras = true; showReview(); } else begin(a.dataset.act);
+          return;
+        }
+        var t = e.target.closest('[data-num]');
+        if (t) return openMover(+t.dataset.num);
+        if (e.target.closest('.tp-rv-send')) {
+          close();
+          var form = (findField() || {}).form;
+          if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+
+      function openMover(num) {
+        moving = num;
+        var f = frames[num - 1];
+        mover.querySelector('img').src = thumb(f, 1000);
+        mover.querySelector('.tp-mv-cap').textContent = label(f);
+        [].forEach.call(mover.querySelectorAll('[data-state]'), function (b) { b.setAttribute('aria-pressed', b.dataset.state === stateOf(num) ? 'true' : 'false'); });
+        mover.classList.add('is-open');
+      }
+      mover.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-state]');
+        if (b) setState(moving, b.dataset.state);
+        if (b || e.target.closest('.tp-mv-x') || e.target === mover) {
+          mover.classList.remove('is-open');
+          showReview();
+        }
+      });
+
+      /* ----- counters ----- */
+
+      function update() {
+        var n = list('select').length;
+        var vals = summary(n);
+        sw.querySelector('.tp-sw-count').innerHTML = esc(fill(choose ? cfg.countText : cfg.plainCountText, vals)).replace(String(n), '<b>' + n + '</b>');
+        var prog = '', hint = '';
+        if (round && !sw.classList.contains('is-review')) {
+          var q = round.queue;
+          prog = Math.min(round.i + 1, q.length) + ' / ' + q.length;
+          if (round.kind === 'maybes') hint = 'Your maybes' + (choose && n < choose ? ' · ' + (choose - n) + (choose - n === 1 ? ' spot' : ' spots') + ' left' : '');
+          if (round.kind === 'trim') hint = 'Keep ' + choose + ' · ' + (n - choose) + ' to drop. Dropped photos become maybes.';
+        }
+        sw.querySelector('.tp-sw-prog').textContent = prog;
+        sw.querySelector('.tp-sw-hint').textContent = hint;
+        undoBtn.disabled = !history.length;
+        if (!sw.classList.contains('is-open')) updateStart();
+      }
+
+      sheet.parentNode.insertBefore(wrap, sheet);
+      wrap.appendChild(switcher);
+      wrap.appendChild(start);
+      wrap.appendChild(sheet);
+      document.body.appendChild(sw);
+      if (phoneQuery.addEventListener) phoneQuery.addEventListener('change', applyMode);
+      applyMode();
+      update();
+
+      return {
+        el: sw,
+        update: update,
+        keydown: function (e) {
+          if (!sw.classList.contains('is-open')) return false;
+          if (e.key === 'Escape') { if (mover.classList.contains('is-open')) { mover.classList.remove('is-open'); } else close(); }
+          else if (round && !sw.classList.contains('is-review')) {
+            if (e.key === 'ArrowLeft') fly('left');
+            else if (e.key === 'ArrowRight') fly('right');
+            else if (e.key === 'ArrowUp' && ROUNDS[round.kind].up) fly('up');
+            else if (e.key === 'Backspace' || e.key === 'z') undo();
+            else return true;
+            e.preventDefault();
+          }
+          return true;
+        },
+        remove: function () {
+          close();
+          if (phoneQuery.removeEventListener) phoneQuery.removeEventListener('change', applyMode);
+          wrap.parentNode.insertBefore(sheet, wrap);
+          wrap.remove();
+          sw.remove();
+        }
+      };
+    }
+
     /* ---------- put it on the page ---------- */
 
-    [sheet, bar, lb].forEach(function (el) { el.style.setProperty('--tp-ink', ink); });
-    if (wmOn) {
-      [sheet, lb].forEach(function (el) {
-        el.classList.add('tp-wm--' + cfg.watermarkPosition);
-        el.style.setProperty('--tp-wm-o', wmOpacity);
-      });
-      makeWatermark(cfg, cfg.watermarkPosition === 'tile', function (url) {
-        [sheet, lb].forEach(function (el) { el.style.setProperty('--tp-wm', 'url("' + url + '")'); });
-      });
-    }
     galleryEl.style.display = 'none';
     galleryEl.parentNode.insertBefore(sheet, galleryEl.nextSibling);
     sheet.parentNode.insertBefore(bar, sheet.nextSibling);
     document.body.appendChild(lb);
+    swipe = buildSwipe();
+    [sheet, bar, lb, swipe.el].forEach(function (el) { el.style.setProperty('--tp-ink', ink); });
+    if (wmOn) {
+      [sheet, lb, swipe.el].forEach(function (el) {
+        el.classList.add('tp-wm--' + cfg.watermarkPosition);
+        el.style.setProperty('--tp-wm-o', wmOpacity);
+      });
+      makeWatermark(cfg, cfg.watermarkPosition === 'tile', function (url) {
+        [sheet, lb, swipe.el].forEach(function (el) { el.style.setProperty('--tp-wm', 'url("' + url + '")'); });
+      });
+    }
     cfgEl.setAttribute('data-tides-init', '');
     render();
 
@@ -517,6 +1020,7 @@
     return {
       sheet: sheet,
       keydown: function (e) {
+        if (swipe.keydown(e)) return;
         if (!lb.classList.contains('is-open')) return;
         if (e.key === 'Escape') closeLightbox();
         if (e.key === 'ArrowLeft') step(-1);
@@ -525,6 +1029,7 @@
       // Put the page back exactly as Squarespace drew it.
       remove: function () {
         clearInterval(waitForForm);
+        swipe.remove();
         sheet.remove();
         bar.remove();
         lb.remove();
